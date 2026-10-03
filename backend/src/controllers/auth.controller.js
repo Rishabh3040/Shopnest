@@ -10,6 +10,8 @@ import otpModel from "../models/otp.model.js";
 import cloudinary from "../config/cloudinary.js";
 
 export async function register(req, res) {
+  let createdUser;
+
   try {
     const { name, email, password } = req.body;
 
@@ -31,6 +33,7 @@ export async function register(req, res) {
       password: hashedPassword,
       role: "user",
     });
+    createdUser = user;
 
     const otp = generateOtp();
 
@@ -67,6 +70,15 @@ export async function register(req, res) {
     });
   } catch (error) {
     console.error("Register Error:", error);
+
+    if (createdUser) {
+      try {
+        await otpModel.deleteMany({ user: createdUser._id });
+        await userModel.deleteOne({ _id: createdUser._id });
+      } catch (cleanupError) {
+        console.error("Registration cleanup failed:", cleanupError);
+      }
+    }
 
     return res.status(500).json({
       message: "Registration failed",

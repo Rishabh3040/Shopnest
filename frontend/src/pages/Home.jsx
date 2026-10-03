@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import ProductCard from "../components/ProductCard";
+import { apiUrl } from "../utils/api";
 
 const Home = () => {
   const [products, setProducts] = useState([]);
@@ -8,7 +9,7 @@ const Home = () => {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const res = await fetch("/api/products");
+        const res = await fetch(apiUrl("/api/products"));
         if (!res.ok)
           throw new Error(`Products could not be loaded (${res.status}).`);
         const data = await res.json();

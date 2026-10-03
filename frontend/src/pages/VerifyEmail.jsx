@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { apiUrl } from "../utils/api";
 import "../styles/email.css";
 
 const VerifyEmail = () => {
@@ -28,7 +29,7 @@ const VerifyEmail = () => {
     try {
       setLoading(true);
 
-      const res = await fetch("/api/auth/verify-otp", {
+      const res = await fetch(apiUrl("/api/auth/verify-otp"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

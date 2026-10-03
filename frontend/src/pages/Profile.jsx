@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
+import { apiUrl } from "../utils/api";
 
 const Profile = () => {
   const { user, logout } = useContext(AuthContext);
@@ -59,7 +60,7 @@ const Profile = () => {
           return;
         }
 
-        const res = await fetch("/api/orders/myorders", {
+        const res = await fetch(apiUrl("/api/orders/myorders"), {
           method: "GET",
           headers: {
             Authorization: `Bearer ${token}`,

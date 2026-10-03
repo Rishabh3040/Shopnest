@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import ProductCard from "../components/ProductCard";
+import { apiUrl } from "../utils/api";
 import "../styles/product.css";
 
 const Shop = () => {
@@ -10,7 +11,7 @@ const Shop = () => {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const res = await fetch("/api/products?page=1&limit=50");
+        const res = await fetch(apiUrl("/api/products?page=1&limit=50"));
 
         if (!res.ok) {
           throw new Error(`Failed to fetch products: ${res.status}`);
@@ -24,7 +25,7 @@ const Shop = () => {
 
         for (let page = 2; page <= (data.pages || 1); page += 1) {
           const pageResponse = await fetch(
-            `/api/products?page=${page}&limit=50`,
+            apiUrl(`/api/products?page=${page}&limit=50`),
           );
           if (!pageResponse.ok) break;
           const pageData = await pageResponse.json();

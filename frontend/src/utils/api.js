@@ -1,3 +1,11 @@
+const API_BASE_URL = (
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.PROD ? "https://shopnest-fhy1.onrender.com" : "")
+).replace(/\/+$/, "");
+
+export const apiUrl = (path) =>
+  API_BASE_URL ? `${API_BASE_URL}${path}` : path;
+
 let refreshPromise = null;
 
 const refreshAccessToken = async () => {
@@ -8,7 +16,7 @@ const refreshAccessToken = async () => {
 
   refreshPromise = (async () => {
     try {
-      const response = await fetch("/api/auth/refresh", {
+      const response = await fetch(apiUrl("/api/auth/refresh"), {
         method: "POST",
         credentials: "include",
       });
@@ -86,7 +94,7 @@ export const apiFetch = async (url, options = {}) => {
     credentials: "include",
   };
 
-  let response = await fetch(url, requestOptions);
+  let response = await fetch(apiUrl(url), requestOptions);
 
   // Access token expired
   if (response.status === 401) {
@@ -107,7 +115,7 @@ export const apiFetch = async (url, options = {}) => {
       retryHeaders.set("Content-Type", "application/json");
     }
 
-    response = await fetch(url, {
+    response = await fetch(apiUrl(url), {
       ...options,
       headers: retryHeaders,
       credentials: "include",

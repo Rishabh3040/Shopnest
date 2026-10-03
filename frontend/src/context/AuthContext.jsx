@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect, useCallback } from "react";
+import { apiUrl } from "../utils/api";
 
 export const AuthContext = createContext();
 
@@ -62,7 +63,7 @@ export const AuthProvider = ({ children }) => {
   // Logout
   const logout = useCallback(async () => {
     try {
-      await fetch("/api/auth/logout", {
+      await fetch(apiUrl("/api/auth/logout"), {
         method: "POST",
         credentials: "include",
         headers: user?.token
@@ -88,7 +89,7 @@ export const AuthProvider = ({ children }) => {
       }
 
       try {
-        const response = await fetch("/api/auth/refresh", {
+        const response = await fetch(apiUrl("/api/auth/refresh"), {
           method: "POST",
           credentials: "include",
         });

@@ -1,6 +1,7 @@
 import React, { useState, useContext } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
+import { apiUrl } from "../utils/api";
 import "../styles/auth.css";
 
 const Login = () => {
@@ -17,7 +18,7 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch(apiUrl("/api/auth/login"), {
         method: "POST",
         credentials: "include",
         headers: {

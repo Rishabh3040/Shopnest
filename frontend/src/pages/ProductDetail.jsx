@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { addToCart } from "../redux/cartSlice";
+import { apiUrl } from "../utils/api";
 import "../styles/product.css";
 
 const ProductDetail = () => {
@@ -17,7 +18,7 @@ const ProductDetail = () => {
       setLoading(true);
       setError("");
       try {
-        const response = await fetch(`/api/products/${id}`);
+        const response = await fetch(apiUrl(`/api/products/${id}`));
         const data = await response.json();
         if (!response.ok)
           throw new Error(data.message || "Product could not be loaded.");

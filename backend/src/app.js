@@ -45,13 +45,21 @@ app.use(
     },
   }),
 );
-const configuredOrigins = process.env.FRONTEND_URL?.split(",")
+const configuredOrigins = (process.env.FRONTEND_URL || "")
+  .split(",")
   .map((origin) => origin.trim())
-  .filter(Boolean);
+  .filter(Boolean)
+  .map((origin) => origin.replace(/\/+$/, ""));
 const allowedOrigins =
   process.env.NODE_ENV === "production"
-    ? configuredOrigins || []
+    ? configuredOrigins
     : ["http://localhost:3000", "http://127.0.0.1:3000"];
+
+if (process.env.NODE_ENV === "production" && allowedOrigins.length === 0) {
+  console.warn(
+    "FRONTEND_URL is not set; cross-origin frontend requests will be blocked.",
+  );
+}
 
 app.use(
   cors({
@@ -82,6 +90,11 @@ app.get("/health", (_req, res) => res.status(200).json({ status: "ok" }));
 
 if (existsSync(frontendIndexPath)) {
   app.use(express.static(frontendDistPath));
+}
+
+app.get("/favicon.ico", (_req, res) => res.status(204).end());
+
+if (existsSync(frontendIndexPath)) {
   app.use((req, res, next) => {
     if (req.method === "GET" && !req.path.startsWith("/api/")) {
       return res.sendFile(frontendIndexPath);
@@ -89,6 +102,10 @@ if (existsSync(frontendIndexPath)) {
     return next();
   });
 }
+
+app.get("/", (_req, res) => {
+  res.status(200).json({ status: "ok", message: "ShopNest API is running" });
+});
 
 app.use(notFound);
 app.use(errorHandler);
