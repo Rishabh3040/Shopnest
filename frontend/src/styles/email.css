@@ -1,0 +1,107 @@
+/* ================= OTP VERIFICATION ================= */
+
+.otp-form {
+  text-align: center;
+}
+
+.otp-icon {
+  width: 70px;
+  height: 70px;
+  margin: 0 auto 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: #eff6ff;
+  border-radius: 50%;
+
+  font-size: 32px;
+}
+
+.otp-form h2 {
+  margin-bottom: 10px;
+}
+
+.otp-description {
+  margin: 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.otp-email {
+  margin: 6px 0 22px;
+  color: #2563eb;
+  font-size: 15px;
+  font-weight: 700;
+  word-break: break-word;
+}
+
+.otp-form input {
+  width: 100%;
+  box-sizing: border-box;
+
+  padding: 14px 16px;
+  margin-bottom: 16px;
+
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+
+  outline: none;
+
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 8px;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.otp-form input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.otp-form input::placeholder {
+  letter-spacing: 1px;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.otp-form .btn {
+  width: 100%;
+  cursor: pointer;
+}
+
+.otp-form .btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.otp-help {
+  margin-top: 18px;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.otp-form a {
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.otp-form a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 480px) {
+  .otp-form {
+    padding: 24px 18px;
+  }
+
+  .otp-form input {
+    font-size: 20px;
+    letter-spacing: 6px;
+  }
+}
