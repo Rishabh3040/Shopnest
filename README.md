@@ -79,7 +79,7 @@ Deploy    — Render (Free Tier)
 ![Project Screenshot](https://github.com/Rishabh3040/Shopnest/blob/master/Screenshot%20(537).png)
 ![Project Screenshot](https://github.com/Rishabh3040/Shopnest/blob/master/Screenshot%20(539).png)
 ![Project Screenshot](https://github.com/Rishabh3040/Shopnest/blob/master/Screenshot%20(541).png)
-![Project Screenshot](https://github.com/Rishabh3040/Shopnest/blob/master/Screenshot%20(542).png)
+
 
 
 
