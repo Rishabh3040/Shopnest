@@ -12,8 +12,8 @@ const Checkout = () => {
   const navigate = useNavigate();
   const idempotencyKey = useRef(null);
   const paymentInProgress = useRef(false);
-  const [gatewayLoaded, setGatewayLoaded] = useState(
-    () => Boolean(window.Razorpay),
+  const [gatewayLoaded, setGatewayLoaded] = useState(() =>
+    Boolean(window.Razorpay),
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
