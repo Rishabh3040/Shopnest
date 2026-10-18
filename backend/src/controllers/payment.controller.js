@@ -28,10 +28,7 @@ const createGateway = () => {
   if (!config.RAZORPAY_KEY_ID || !config.RAZORPAY_KEY_SECRET) {
     throw new CheckoutError("Online payments are not configured.", 503);
   }
-  if (
-    config.NODE_ENV === "production" &&
-    !config.RAZORPAY_WEBHOOK_SECRET
-  ) {
+  if (config.NODE_ENV === "production" && !config.RAZORPAY_WEBHOOK_SECRET) {
     throw new CheckoutError(
       "Payment webhooks must be configured before checkout is enabled.",
       503,
@@ -53,11 +50,7 @@ const normalizeAddress = (address) => {
     country: String(address?.country || "").trim(),
   };
 
-  if (
-    Object.values(normalized).some(
-      (value) => !value || value.length > 200,
-    )
-  ) {
+  if (Object.values(normalized).some((value) => !value || value.length > 200)) {
     throw new CheckoutError("A complete, valid shipping address is required.");
   }
 
@@ -115,9 +108,7 @@ const normalizeCheckout = async (items, address) => {
         imageUrl: product.imageUrl || "",
       };
     })
-    .sort((a, b) =>
-      String(a.productId).localeCompare(String(b.productId)),
-    );
+    .sort((a, b) => String(a.productId).localeCompare(String(b.productId)));
 
   const totalAmountPaise = normalizedItems.reduce(
     (total, item) => total + Math.round(item.price * 100) * item.qty,
@@ -209,7 +200,9 @@ export const createPaymentOrder = async (req, res) => {
           state.req.get("Idempotency-Key") || "",
         ).trim();
         if (!/^[A-Za-z0-9._:-]{8,128}$/.test(state.checkoutKey)) {
-          throw new CheckoutError("A valid Idempotency-Key header is required.");
+          throw new CheckoutError(
+            "A valid Idempotency-Key header is required.",
+          );
         }
         state.checkout = await normalizeCheckout(
           state.req.body?.items,
@@ -288,7 +281,10 @@ export const createPaymentOrder = async (req, res) => {
       context.order.paymentStatus = "failed";
       context.order.activeCheckoutKey = undefined;
       await context.order.save().catch((saveError) => {
-        console.error("Failed to mark payment initialization error:", saveError);
+        console.error(
+          "Failed to mark payment initialization error:",
+          saveError,
+        );
       });
     }
 
@@ -464,13 +460,11 @@ export const refundDuplicateCapturedPayment = async (
   }
 
   const findExistingProviderRefund = async () => {
-    const response = await gateway.payments.fetchMultipleRefund(
-      payment.id,
-      { count: 100 },
-    );
+    const response = await gateway.payments.fetchMultipleRefund(payment.id, {
+      count: 100,
+    });
     const matchingRefunds = (response.items || []).filter(
-      (refund) =>
-        refund.notes?.paymentRefundId === String(claimedRefund._id),
+      (refund) => refund.notes?.paymentRefundId === String(claimedRefund._id),
     );
     return (
       matchingRefunds.find((refund) => refund.status === "processed") ||
@@ -571,11 +565,7 @@ const verifyProviderPayment = async (gateway, order, paymentId) => {
   }
 
   if (payment.status === "authorized") {
-    await gateway.payments.capture(
-      payment.id,
-      order.totalAmountPaise,
-      "INR",
-    );
+    await gateway.payments.capture(payment.id, order.totalAmountPaise, "INR");
     return gateway.payments.fetch(payment.id);
   }
 
@@ -603,11 +593,7 @@ export const verifyPayment = async (req, res) => {
           state.paymentOrderId = state.req.body?.razorpay_order_id;
           state.paymentId = state.req.body?.razorpay_payment_id;
           state.signature = state.req.body?.razorpay_signature;
-          if (
-            !state.paymentOrderId ||
-            !state.paymentId ||
-            !state.signature
-          ) {
+          if (!state.paymentOrderId || !state.paymentId || !state.signature) {
             throw new CheckoutError(
               "Payment verification details are required.",
             );
@@ -758,7 +744,9 @@ export const handlePaymentWebhook = async (req, res) => {
         async (state) => {
           state.providerRefund = state.event.payload?.refund?.entity;
           if (
-            !["refund.processed", "refund.failed"].includes(state.event.event) ||
+            !["refund.processed", "refund.failed"].includes(
+              state.event.event,
+            ) ||
             !state.providerRefund?.id
           ) {
             return state;
