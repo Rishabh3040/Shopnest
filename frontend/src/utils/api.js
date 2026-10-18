@@ -1,6 +1,6 @@
 const API_BASE_URL = (
   import.meta.env.VITE_API_URL ||
-  (import.meta.env.PROD ? "https://shopnest-fhy1.onrender.com" : "")
+  (import.meta.env.PROD ? "https://shopnesto.onrender.com" : "")
 ).replace(/\/+$/, "");
 
 export const apiUrl = (path) =>

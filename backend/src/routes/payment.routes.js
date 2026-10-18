@@ -1,10 +1,15 @@
 import { Router } from "express";
-import * as paymentController from "../controllers/paymnet.Controller.js";
+import {
+  createPaymentOrder,
+  handlePaymentWebhook,
+  verifyPayment,
+} from "../controllers/payment.controller.js";
 import { protect } from "../middlewares/auth.middleware.js";
 
 const paymentRouter = Router();
 
-paymentRouter.post("/order", protect, paymentController.createPaymentOrder);
-paymentRouter.post("/verify", protect, paymentController.verifyPayment);
+paymentRouter.post("/order", protect, createPaymentOrder);
+paymentRouter.post("/verify", protect, verifyPayment);
+paymentRouter.post("/webhook", handlePaymentWebhook);
 
 export default paymentRouter;

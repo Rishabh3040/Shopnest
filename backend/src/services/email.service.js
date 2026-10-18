@@ -23,7 +23,7 @@ transporter.verify((error, success) => {
 
 export const sendEmail = async (to, subject, text, html) => {
   const info = await transporter.sendMail({
-    from: `"Your Name" <${config.GOOGLE_USER}>`,
+    from: `"ShopNest Email" <${config.GOOGLE_USER}>`,
     to,
     subject,
     text,

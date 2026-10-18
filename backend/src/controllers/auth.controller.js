@@ -4,6 +4,7 @@ import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import config from "../config/config.js";
 import sessionModel from "../models/session.model.js";
+import tokenBlacklistModel from "../models/blackList.model.js";
 import { sendEmail } from "../services/email.service.js";
 import { generateOtp, getOtpHtml } from "../utils/utils.js";
 import otpModel from "../models/otp.model.js";
@@ -91,7 +92,7 @@ export async function login(req, res) {
   try {
     const { email, password } = req.body;
 
-    const user = await userModel.findOne({ email });
+    const user = await userModel.findOne({ email }).select("+password");
 
     if (!user) {
       return res.status(401).json({
@@ -344,6 +345,36 @@ export async function refreshToken(req, res) {
 
 export async function logout(req, res) {
   try {
+    const authorization = req.headers.authorization;
+    const accessToken =
+      req.cookies?.token ||
+      (authorization?.startsWith("Bearer ") ? authorization.slice(7) : null);
+
+    if (accessToken) {
+      let decodedAccessToken;
+      try {
+        decodedAccessToken = jwt.verify(accessToken, config.JWT_SECRET);
+      } catch (error) {
+        if (!(error instanceof jwt.JsonWebTokenError)) {
+          throw error;
+        }
+      }
+
+      if (decodedAccessToken) {
+        await tokenBlacklistModel.findOneAndUpdate(
+          { token: accessToken },
+          {
+            token: accessToken,
+            expiresAt:
+              typeof decodedAccessToken.exp === "number"
+                ? new Date(decodedAccessToken.exp * 1000)
+                : new Date("9999-12-31T23:59:59.999Z"),
+          },
+          { upsert: true, new: true, setDefaultsOnInsert: true },
+        );
+      }
+    }
+
     const refreshToken = req.cookies?.refreshToken;
 
     if (!refreshToken) {

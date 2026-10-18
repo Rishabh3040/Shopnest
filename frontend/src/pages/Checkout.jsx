@@ -1,4 +1,4 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect, useRef } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
@@ -10,6 +10,33 @@ const Checkout = () => {
   const cartItems = useSelector((state) => state.cart.cartItems);
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const idempotencyKey = useRef(null);
+  const paymentInProgress = useRef(false);
+  const [gatewayLoaded, setGatewayLoaded] = useState(
+    () => Boolean(window.Razorpay),
+  );
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (window.Razorpay) {
+      setGatewayLoaded(true);
+      return undefined;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => setGatewayLoaded(true);
+    script.onerror = () =>
+      setError("Payment checkout could not be loaded. Refresh and try again.");
+    document.body.appendChild(script);
+
+    return () => {
+      script.onload = null;
+      script.onerror = null;
+    };
+  }, []);
 
   const [address, setAddress] = useState({
     fullName: "",
@@ -25,24 +52,44 @@ const Checkout = () => {
   );
 
   const handlePayment = async () => {
+    if (paymentInProgress.current) return;
+    paymentInProgress.current = true;
+    setError("");
+    setLoading(true);
+
     try {
       if (!cartItems.length) {
-        alert("Your cart is empty.");
+        setError("Your cart is empty.");
+        setLoading(false);
+        paymentInProgress.current = false;
         return;
+      }
+
+      if (!gatewayLoaded || !window.Razorpay) {
+        setError("Payment checkout is still loading. Please try again.");
+        setLoading(false);
+        paymentInProgress.current = false;
+        return;
+      }
+
+      if (!idempotencyKey.current) {
+        idempotencyKey.current =
+          window.crypto?.randomUUID?.() ||
+          `${Date.now()}-${Math.random().toString(36).slice(2)}`;
       }
 
       const orderRes = await apiFetch("/api/payment/order", {
         method: "POST",
+        headers: { "Idempotency-Key": idempotencyKey.current },
         body: JSON.stringify({ items: cartItems, address }),
       });
       const orderData = await orderRes.json();
 
       if (!orderRes.ok) {
-        alert(orderData.message || "Payment could not be initialized.");
-        return;
-      }
-      if (!window.Razorpay) {
-        alert("Payment checkout could not be loaded. Please try again.");
+        idempotencyKey.current = null;
+        setError(orderData.message || "Payment could not be initialized.");
+        setLoading(false);
+        paymentInProgress.current = false;
         return;
       }
 
@@ -54,44 +101,77 @@ const Checkout = () => {
         description: "ShopNest order",
         order_id: orderData.id,
         handler: async (response) => {
-          const verifyRes = await apiFetch("/api/payment/verify", {
-            method: "POST",
-            body: JSON.stringify({ ...response, items: cartItems, address }),
-          });
-          const verifyData = await verifyRes.json();
-          if (verifyRes.ok) {
-            dispatch(clearCart());
-            navigate("/ordersuccess");
-          } else {
-            alert(verifyData.message || "Payment verification failed.");
+          try {
+            const verifyRes = await apiFetch("/api/payment/verify", {
+              method: "POST",
+              body: JSON.stringify(response),
+            });
+            const verifyData = await verifyRes.json();
+            if (verifyRes.ok) {
+              dispatch(clearCart());
+              navigate("/ordersuccess", {
+                state: {
+                  duplicatePaymentRefund: verifyData.duplicatePaymentRefund,
+                },
+              });
+            } else {
+              setError(
+                verifyData.message ||
+                  "Payment was received but could not be verified. Contact support with your order reference.",
+              );
+            }
+          } catch (verificationError) {
+            console.error(verificationError);
+            setError(
+              "Payment was received but could not be verified. Contact support before trying again.",
+            );
+          } finally {
+            setLoading(false);
+            paymentInProgress.current = false;
           }
         },
         prefill: {
           name: address.fullName,
           email: user?.email,
-          contact: "9999999999",
         },
         theme: {
           color: "#48c9a1",
         },
+        modal: {
+          ondismiss: () => {
+            setLoading(false);
+            paymentInProgress.current = false;
+          },
+        },
       };
 
       const rzp1 = new window.Razorpay(options);
+      rzp1.on("payment.failed", (response) => {
+        idempotencyKey.current = null;
+        setError(
+          response.error?.description ||
+            "Payment failed. Please try again with a new payment attempt.",
+        );
+        setLoading(false);
+        paymentInProgress.current = false;
+      });
       rzp1.open();
     } catch (error) {
       console.error(error);
-      alert(error.message || "Payment could not be completed.");
+      idempotencyKey.current = null;
+      setError(error.message || "Payment could not be completed.");
+      setLoading(false);
+      paymentInProgress.current = false;
     }
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!user) {
-      alert("Please login first");
       navigate("/login");
       return;
     }
-    handlePayment();
+    void handlePayment();
   };
 
   return (
@@ -158,8 +238,13 @@ const Checkout = () => {
           />
           <div className="checkout-summary">
             <h4>Total to Pay: ₹{totalPrice.toFixed(2)}</h4>
-            <button type="submit" className="btn">
-              Pay Now
+            {error && <p role="alert">{error}</p>}
+            <button
+              type="submit"
+              className="btn"
+              disabled={loading || !gatewayLoaded || cartItems.length === 0}
+            >
+              {loading ? "Processing..." : "Pay Now"}
             </button>
           </div>
         </form>

@@ -11,8 +11,10 @@ import authRouter from "./routes/auth.routes.js";
 import productsRouter from "./routes/product.routes.js";
 import orderRouter from "./routes/order.routes.js";
 import paymentRouter from "./routes/payment.routes.js";
+import trasactionRoutes from "./routes/transaction.routes.js";
 import analyticRouter from "./routes/analytic.routes.js";
 import { notFound, errorHandler } from "./middlewares/error.middleware.js";
+import accountRouter from "./routes/account.routes.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -73,11 +75,21 @@ app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 100,
-    standardHeaders: true,
-    legacyHeaders: false,
+    // standardHeaders: true,
+    // legacyHeaders: false,
+    message: "Too many attempts please try again later",
   }),
 );
-app.use(express.json({ limit: "1mb" }));
+app.use(
+  express.json({
+    limit: "1mb",
+    verify(req, _res, buffer) {
+      if (req.path === "/api/payment/webhook") {
+        req.rawBody = Buffer.from(buffer);
+      }
+    },
+  }),
+);
 app.use(morgan("dev"));
 app.use(cookieParser());
 
@@ -85,6 +97,8 @@ app.use("/api/auth", authRouter);
 app.use("/api/products", productsRouter);
 app.use("/api/orders", orderRouter);
 app.use("/api/payment", paymentRouter);
+app.use("/api/transactions", trasactionRoutes);
+app.use("/api/account", accountRouter);
 app.use("/api/analytics", analyticRouter);
 app.get("/health", (_req, res) => res.status(200).json({ status: "ok" }));
 

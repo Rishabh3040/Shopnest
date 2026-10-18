@@ -121,18 +121,20 @@ const AdminProducts = () => {
                   </td>
                   <td style={tdStyle}>{product.numReview || 0}</td>
                   <td style={tdStyle}>
-                    <Link
-                      to={`/admin/edit-product/${product._id}`}
-                      style={editBtn}
-                    >
-                      Edit
-                    </Link>
-                    <button
-                      onClick={() => handleDelete(product._id)}
-                      style={deleteBtn}
-                    >
-                      Delete
-                    </button>
+                    <div style={actionButtonsStyle}>
+                      <Link
+                        to={`/admin/edit-product/${product._id}`}
+                        style={editBtn}
+                      >
+                        Edit
+                      </Link>
+                      <button
+                        onClick={() => handleDelete(product._id)}
+                        style={deleteBtn}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -182,12 +184,16 @@ const thStyle = {
   fontSize: "0.9rem",
 };
 const tdStyle = { padding: "15px", textAlign: "left" };
+const actionButtonsStyle = {
+  display: "flex",
+  alignItems: "center",
+  gap: "10px",
+};
 const editBtn = {
   background: "#3b82f6",
   color: "#fff",
   padding: "6px 12px",
   borderRadius: "4px",
-  marginRight: "10px",
 };
 const deleteBtn = {
   background: "#ef4444",

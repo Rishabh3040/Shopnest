@@ -1,198 +1,240 @@
+import mongoose from "mongoose";
 import orderModel from "../models/order.model.js";
-import { sendEmail } from "../services/email.service.js";
+import paymentRefundModel from "../models/paymentRefund.model.js";
+import productModel from "../models/product.model.js";
 
-// ==========================================
-// CREATE ORDER
-// ==========================================
-const createOrder = async (req, res) => {
-  try {
-    const { items, totalAmount, address, paymentId } = req.body;
+const isPaidOrder = (order) =>
+  order.paymentStatus === "captured" ||
+  (!order.paymentStatus && Boolean(order.paymentId));
 
-    // Validate items
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({
-        message: "Order items are required",
-      });
-    }
+class InventoryUnavailableError extends Error {}
 
-    // Validate total amount
-    if (!totalAmount) {
-      return res.status(400).json({
-        message: "Total amount is required",
-      });
-    }
-
-    // Validate address
-    if (
-      !address ||
-      !address.fullName ||
-      !address.street ||
-      !address.city ||
-      !address.postalCode ||
-      !address.country
-    ) {
-      return res.status(400).json({
-        message: "Complete address is required",
-      });
-    }
-
-    // Validate payment ID
-    if (!paymentId) {
-      return res.status(400).json({
-        message: "Payment ID is required",
-      });
-    }
-
-    // Create order
-    const order = new orderModel({
-      user: req.user._id,
-      items,
-      totalAmount,
-      address,
-      paymentId,
-    });
-
-    // Save order
-    await order.save();
-
-    // Email message
-    const message = `Dear ${req.user.name},
-
-Thanks for your order!
-
-Your order has been successfully created.
-
-Order ID: ${order._id}
-Total Amount: ₹${totalAmount}
-
-Shipping Address:
-${address.fullName}
-${address.street}
-${address.city}
-${address.postalCode}
-${address.country}
-
-We will notify you once your order is shipped.
-
-Best regards,
-ShopNest Team`;
-
-    // Send email
-    await sendEmail(req.user.email, "Order Created", message);
-
-    // Response
-    res.status(201).json({
-      message: "Order created successfully",
-      order,
-    });
-  } catch (error) {
-    console.error("Create Order Error:", error);
-
-    res.status(500).json({
-      message: "Error creating order",
-      error: error.message,
-    });
-  }
-};
-
-// ==========================================
-// GET MY ORDERS
-// ==========================================
-const myOrders = async (req, res) => {
+export const myOrders = async (req, res) => {
   try {
     const orders = await orderModel
-      .find({
-        user: req.user._id,
-      })
-      .populate("items.productId", "name price")
-      .sort({
-        createdAt: -1,
-      });
-
-    res.status(200).json(orders);
-  } catch (error) {
-    console.error("My Orders Error:", error);
-
-    res.status(500).json({
-      message: "Error fetching orders",
-      error: error.message,
-    });
-  }
-};
-
-// ==========================================
-// GET ALL ORDERS
-// ==========================================
-const getorders = async (req, res) => {
-  try {
-    const orders = await orderModel
-      .find({})
-      .populate("user", "name email")
+      .find({ user: req.user._id })
       .populate("items.productId", "name price imageUrl")
-      .sort({
-        createdAt: -1,
-      });
+      .sort({ createdAt: -1 });
 
-    res.status(200).json(orders);
+    return res.status(200).json(orders);
   } catch (error) {
-    console.error("Get Orders Error:", error);
-
-    res.status(500).json({
-      message: "Error fetching orders",
-      error: error.message,
-    });
+    console.error("My orders fetch failed:", error);
+    return res.status(500).json({ message: "Orders could not be fetched." });
   }
 };
 
-// ==========================================
-// UPDATE ORDER STATUS
-// ==========================================
-const updateOrderStatus = async (req, res) => {
+export const getOrders = async (req, res) => {
   try {
+    const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(
+      100,
+      Math.max(1, Number.parseInt(req.query.limit, 10) || 25),
+    );
+    const filter = {};
+
+    if (req.query.status) {
+      if (
+        !["pending", "processing", "shipped", "delivered"].includes(
+          req.query.status,
+        )
+      ) {
+        return res.status(400).json({ message: "Invalid order status filter." });
+      }
+      filter.status = req.query.status;
+    }
+
+    if (req.query.paymentStatus) {
+      if (
+        ![
+          "creating",
+          "created",
+          "authorized",
+          "captured",
+          "failed",
+          "refunded",
+        ].includes(req.query.paymentStatus)
+      ) {
+        return res.status(400).json({ message: "Invalid payment status filter." });
+      }
+      if (req.query.paymentStatus === "captured") {
+        filter.$or = [
+          { paymentStatus: "captured" },
+          {
+            paymentStatus: { $exists: false },
+            paymentId: { $exists: true, $ne: "" },
+          },
+        ];
+      } else {
+        filter.paymentStatus = req.query.paymentStatus;
+      }
+    }
+
+    const [orders, total] = await Promise.all([
+      orderModel
+        .find(filter)
+        .populate("user", "name email")
+        .populate("items.productId", "name price imageUrl")
+        .sort({ createdAt: -1, _id: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean(),
+      orderModel.countDocuments(filter),
+    ]);
+
+    const refunds = await paymentRefundModel
+      .find({ order: { $in: orders.map((order) => order._id) } })
+      .sort({ createdAt: -1 })
+      .lean();
+    const refundsByOrder = new Map();
+    for (const refund of refunds) {
+      const key = String(refund.order);
+      const existing = refundsByOrder.get(key) || [];
+      existing.push(refund);
+      refundsByOrder.set(key, existing);
+    }
+
+    const normalizedOrders = orders.map((order) => ({
+      ...order,
+      paymentStatus:
+        order.paymentStatus || (order.paymentId ? "captured" : "unknown"),
+      inventoryStatus:
+        order.inventoryStatus ||
+        (order.paymentId ? "legacy" : "unallocated"),
+      duplicatePaymentRefunds: refundsByOrder.get(String(order._id)) || [],
+    }));
+
+    return res.status(200).json({
+      orders: normalizedOrders,
+      page,
+      limit,
+      total,
+      pages: Math.ceil(total / limit),
+    });
+  } catch (error) {
+    console.error("Admin orders fetch failed:", error);
+    return res.status(500).json({ message: "Orders could not be fetched." });
+  }
+};
+
+const allowedTransitions = {
+  pending: ["processing"],
+  processing: ["shipped"],
+  shipped: ["delivered"],
+  delivered: [],
+};
+
+export const updateOrderStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
     const { status } = req.body;
 
-    // Allowed statuses
-    const allowedStatuses = ["pending", "shipped", "delivered"];
-
-    // Validate status
-    if (!allowedStatuses.includes(status)) {
-      return res.status(400).json({
-        message: "Invalid order status",
-      });
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ message: "Invalid order id." });
     }
 
-    // Find order
-    const order = await orderModel.findById(req.params.id);
+    if (!["pending", "processing", "shipped", "delivered"].includes(status)) {
+      return res.status(400).json({ message: "Invalid order status." });
+    }
 
-    // Order not found
+    const order = await orderModel.findById(id);
     if (!order) {
-      return res.status(404).json({
-        message: "Order not found",
+      return res.status(404).json({ message: "Order not found." });
+    }
+
+    if (order.status === status) {
+      return res.status(200).json({ message: "Order status unchanged.", order });
+    }
+
+    if (!isPaidOrder(order)) {
+      return res.status(409).json({
+        message: "Only paid orders can move to fulfillment.",
       });
     }
 
-    // Update status
-    order.status = status;
+    if (order.inventoryStatus === "review") {
+      return res.status(409).json({
+        message: "Resolve the inventory review before fulfilling this order.",
+      });
+    }
 
-    // Save order
+    if (!allowedTransitions[order.status]?.includes(status)) {
+      return res.status(409).json({
+        message: `Order cannot transition from ${order.status} to ${status}.`,
+      });
+    }
+
+    order.status = status;
     await order.save();
 
-    // Response
-    res.status(200).json({
-      message: "Order status updated",
+    return res.status(200).json({
+      message: "Order status updated.",
       order,
     });
   } catch (error) {
-    console.error("Update Order Status Error:", error);
-
-    res.status(500).json({
-      message: "Error updating order status",
-      error: error.message,
-    });
+    console.error("Order status update failed:", error);
+    return res
+      .status(500)
+      .json({ message: "Order status could not be updated." });
   }
 };
 
-// ==========================================
-// EXPORT
-// ==========================================
-export { createOrder, myOrders, getorders, updateOrderStatus };
+export const allocateInventory = async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    return res.status(400).json({ message: "Invalid order id." });
+  }
+
+  const session = await mongoose.startSession();
+  let order;
+
+  try {
+    await session.withTransaction(async () => {
+      order = await orderModel.findById(req.params.id).session(session);
+      if (!order) {
+        const error = new Error("Order not found.");
+        error.status = 404;
+        throw error;
+      }
+      if (order.paymentStatus !== "captured") {
+        const error = new Error("Only paid orders can allocate inventory.");
+        error.status = 409;
+        throw error;
+      }
+      if (order.inventoryStatus === "allocated") return;
+      if (order.inventoryStatus !== "review") {
+        const error = new Error("Order is not waiting for inventory review.");
+        error.status = 409;
+        throw error;
+      }
+
+      for (const item of order.items) {
+        const product = await productModel.findOneAndUpdate(
+          { _id: item.productId, stock: { $gte: item.qty } },
+          { $inc: { stock: -item.qty } },
+          { new: true, session },
+        );
+        if (!product) throw new InventoryUnavailableError();
+      }
+
+      order.inventoryStatus = "allocated";
+      await order.save({ session });
+    });
+
+    return res.status(200).json({
+      message: "Inventory allocated successfully.",
+      order,
+    });
+  } catch (error) {
+    if (error instanceof InventoryUnavailableError) {
+      return res.status(409).json({
+        message: "There is still not enough stock to fulfill this order.",
+      });
+    }
+    if (error.status) {
+      return res.status(error.status).json({ message: error.message });
+    }
+    console.error("Order inventory allocation failed:", error);
+    return res.status(500).json({ message: "Inventory could not be allocated." });
+  } finally {
+    await session.endSession();
+  }
+};

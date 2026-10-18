@@ -407,6 +407,19 @@ const Profile = () => {
                           ₹{Number(order?.totalAmount || 0).toFixed(2)}
                         </strong>
                       </p>
+                      <p
+                        style={{
+                          color: "#a9b9ae",
+                          fontSize: "0.9rem",
+                          marginTop: "5px",
+                        }}
+                      >
+                        Payment:{" "}
+                        <strong style={{ color: "#fff" }}>
+                          {order?.paymentStatus ||
+                            (order?.paymentId ? "captured" : "unknown")}
+                        </strong>
+                      </p>
                     </div>
 
                     {/* Status */}

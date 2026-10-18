@@ -9,20 +9,24 @@ const getAdminStats = async (req, res) => {
       role: "user",
     });
 
-    // Total orders
-    const totalOrders = await Order.countDocuments({});
+    const paidOrderFilter = {
+      $or: [
+        { paymentStatus: "captured" },
+        {
+          paymentStatus: { $exists: false },
+          paymentId: { $exists: true, $ne: "" },
+        },
+      ],
+    };
 
-    // Total products
-    const totalProducts = await Product.countDocuments({});
-
-    // Get all orders
-    const orders = await Order.find({});
-
-    // Calculate total revenue
-    const totalRevenue = orders.reduce(
-      (acc, order) => acc + order.totalAmount,
-      0,
-    );
+    const [totalOrders, totalProducts, totalRevenue] = await Promise.all([
+      Order.countDocuments(paidOrderFilter),
+      Product.countDocuments({}),
+      Order.aggregate([
+        { $match: paidOrderFilter },
+        { $group: { _id: null, total: { $sum: "$totalAmount" } } },
+      ]).then((result) => result[0]?.total || 0),
+    ]);
 
     // Send response
     res.status(200).json({
@@ -38,7 +42,6 @@ const getAdminStats = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error fetching admin statistics",
-      error: error.message,
     });
   }
 };
